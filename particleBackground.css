@@ -1,0 +1,41 @@
+/* Premium animated particle canvas background */
+body {
+    position: relative;
+    isolation: isolate;
+    background: transparent;
+    overflow-x: hidden;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(0, 200, 255, 0.12), transparent 35%),
+        radial-gradient(circle at 70% 85%, rgba(138, 92, 255, 0.10), transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(4, 8, 20, 0.85), transparent 58%);
+    filter: blur(22px);
+}
+
+.particle-background-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+    display: block;
+    background: transparent;
+}
+
+/* Keep the center area slightly dimmer so the main game card stays the focus */
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background: radial-gradient(circle at center, transparent 0%, rgba(2, 6, 23, 0.28) 55%, rgba(2, 6, 23, 0.7) 100%);
+}

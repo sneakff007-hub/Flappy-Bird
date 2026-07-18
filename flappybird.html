@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title> Sneak Flappy Bird </title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="stylesheet" href="particleBackground.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --neon-blue: #00b4db;
+            --neon-pink: #ff416c;
+            --discord-color: #5865F2;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #1e272e 0%, #0f172a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            overflow-y: auto;
+            color: #f8fafc;
+            box-sizing: border-box;
+        }
+
+        /* Ambient glowing background shapes */
+        .bg-glow {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            filter: blur(120px);
+            opacity: 0.3;
+            z-index: 1;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .bg-glow.left { top: -10%; left: -10%; background: var(--neon-blue); }
+        .bg-glow.right { bottom: -10%; right: -10%; background: var(--neon-pink); }
+
+        /* Responsive Dashboard Wrap */
+        #appWrapper {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            z-index: 2;
+            padding: 20px;
+            width: 100%;
+            max-width: 1100px;
+            box-sizing: border-box;
+        }
+
+        /* Glassmorphic Side Panels */
+        .glass-panel {
+            width: 240px;
+            height: 550px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            transition: order 0.3s ease;
+        }
+
+        .glass-panel h2 {
+            margin-top: 0;
+            font-size: 20px;
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            border-bottom: 2px solid var(--glass-border);
+            padding-bottom: 10px;
+        }
+
+        .shortcut-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .shortcut-list li {
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shortcut-list kbd {
+            background: rgba(255,255,255,0.15);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Discord Button Styling */
+        .discord-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: var(--discord-color);
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 15px rgba(88, 101, 242, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .discord-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(88, 101, 242, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .discord-btn:active {
+            transform: translateY(1px);
+        }
+
+        .discord-icon {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        /* Leaderboard items styling */
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 15px;
+        }
+        .rank-1 { color: #fdbb2d; font-weight: bold; }
+
+        /* Main Game Wrapper */
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 180, 219, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            width: 100%;
+            max-width: 430px;
+            aspect-ratio: 430 / 620;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #0f172a, #1e1b4b, #2e1065);
+        }
+
+        #scoreBoard {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 46px;
+            font-weight: 900;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            z-index: 10;
+        }
+
+        /* Sound Button Container Overlay */
+        #audioToggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 12;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        #audioToggle:hover { background: rgba(255,255,255,0.2); }
+
+        /* Shared Screen Layout Components */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        #gameOverScreen { display: none; }
+
+        .overlay-screen h1 {
+            font-size: 42px;
+            margin: 0 0 10px 0;
+            background: linear-gradient(45deg, var(--neon-pink), #f59e0b);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .gate-input {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            padding: 12px 20px;
+            border-radius: 25px;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            margin-bottom: 18px;
+            text-align: center;
+            width: 80%;
+            transition: border-color 0.2s;
+        }
+        .gate-input:focus {
+            border-color: var(--neon-blue);
+        }
+
+        .arcade-btn {
+            padding: 14px 35px;
+            font-size: 17px;
+            background: linear-gradient(135deg, var(--neon-blue), #0083b0);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 180, 219, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .arcade-btn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(0, 180, 219, 0.6);
+        }
+        .arcade-btn:active { transform: translateY(1px); }
+
+        /* Responsive Mobile Breakpoints */
+        @media (max-width: 950px) {
+            #appWrapper {
+                flex-direction: column;
+                height: auto;
+                align-items: center;
+                padding: 10px;
+            }
+            #gameContainer {
+                order: 1;
+                max-width: 95vw;
+                width: 100%;
+            }
+            .glass-panel {
+                order: 2;
+                width: 100%;
+                max-width: 430px;
+                height: auto;
+                gap: 20px;
+            }
+            .glass-panel h2 {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-glow left"></div>
+    <div class="bg-glow right"></div>
+
+    <div id="appWrapper">
+        <div class="glass-panel">
+            <div>
+                <h2>CONTROLS</h2>
+                <ul class="shortcut-list">
+                    <li>Flap/Jump <kbd>Space</kbd></li>
+                    <li>Alternative <kbd>Click</kbd></li>
+                    <li>Mobile Tap <kbd>Screen</kbd></li>
+                </ul>
+            </div>
+            
+            <a href="https://discord.gg/Hb5ZTJkREE" target="_blank" class="discord-btn">
+                <svg class="discord-icon" viewBox="0 0 127.14 96.36" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,53.22,6.83,77.19,77.19,0,0,0,49.88,0,105.15,105.15,0,0,0,19.44,8.07C3.66,31.58-1.86,54.65,1,77.53A105.73,105.73,0,0,0,32,96.36a74.37,74.37,0,0,0,6.71-11,68.6,68.6,0,0,1-10.57-5.12c.9-.65,1.76-1.34,2.58-2a75.58,75.58,0,0,0,72.9,0c.82.71,1.68,1.4,2.58,2a68.43,68.43,0,0,1-10.57,5.12,77.72,77.72,0,0,0,6.71,11,105.54,105.54,0,0,0,31.06-18.83C130.63,48.22,124.75,25.4,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z"/>
+                </svg>
+                Join Server!
+            </a>
+        </div>
+
+        <div id="gameContainer">
+            <div id="gateScreen" class="overlay-screen">
+                <header class="brand-hero" aria-label="Site brand">
+                    <img class="brand-logo" src="assets/logo.png" alt="Sneak Flappy Bird logo" width="120" height="120" loading="eager">
+                    <h1 class="brand-title">ENTER ARCADE</h1>
+                    <p class="brand-subtitle">Claim your tag on the machine leaderboard</p>
+                </header>
+                <input type="text" id="playerNameInput" class="gate-input" placeholder="Enter Pilot Name" maxlength="10">
+                <button class="arcade-btn" onclick="registerUser()">Launch Simulator</button>
+            </div>
+
+            <div id="gameOverScreen" class="overlay-screen">
+                <h1>GAME OVER</h1>
+                <p id="runSummaryText" style="color:#94a3b8; margin-bottom:20px; font-size: 15px;"></p>
+                <button class="arcade-btn" id="restartBtn" onclick="resetGame()">Play Again</button>
+            </div>
+
+            <button id="audioToggle" onclick="toggleMute(event)">🔊 Audio On</button>
+            <div id="scoreBoard">0</div>
+            <canvas id="gameCanvas" width="430" height="620"></canvas>
+        </div>
+
+        <div class="glass-panel">
+            <div>
+                <h2>LEADERBOARD</h2>
+                <div id="leaderboardListing">
+                    <div class="leaderboard-item rank-1"><span>1. VAPOR</span><span>84</span></div>
+                    <div class="leaderboard-item"><span>2. CYBER</span><span>42</span></div>
+                    <div class="leaderboard-item"><span>3. PILOT</span><span>29</span></div>
+                </div>
+                <div class="leaderboard-item" id="playerBestRow" style="margin-top: 15px; border-top: 1px dashed rgba(255,255,255,0.2);">
+                    <span id="localProfileName" style="color: var(--neon-blue);">4. YOU (BEST)</span><span id="bestScoreText">0</span>
+                </div>
+            </div>
+            <div style="text-align: center; font-size: 13px; color: var(--neon-blue); letter-spacing: 0.5px;" id="sysStatusNode">
+                Sneak Playzz
+            </div>
+        </div>
+    </div>
+
+    <script src="particleBackground.js"></script>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreBoard = document.getElementById("scoreBoard");
+        const gameOverScreen = document.getElementById("gameOverScreen");
+        const gateScreen = document.getElementById("gateScreen");
+        const bestScoreText = document.getElementById("bestScoreText");
+        const localProfileName = document.getElementById("localProfileName");
+        const runSummaryText = document.getElementById("runSummaryText");
+
+        // CLOUD LEADERBOARD CONFIG
+        const LEADERBOARD_API_URL = "https://api.jsonbin.io/v3/b/6a5b9db0f5f4af5e29a1028c";
+        const LEADERBOARD_API_KEY = "$2a$10$KERegVrvMbXZyPPWSlQdGuGZecTV4iZdWMMesr.3PvCdQwcXDiRtC";
+        const LEADERBOARD_WRITE_METHOD = "PUT";
+        const LEADERBOARD_STORAGE_KEY = "flappyBirdLocalLeaderboard";
+        const FALLBACK_LEADERBOARD = [
+            { name: "VAPOR", score: 84, timestamp: Date.now() - 86400000 },
+            { name: "CYBER", score: 42, timestamp: Date.now() - 172800000 },
+            { name: "PILOT", score: 29, timestamp: Date.now() - 259200000 }
+        ];
+
+        function buildLeaderboardHeaders(extraHeaders = {}) {
+            const headers = {
+                "Content-Type": "application/json",
+                ...extraHeaders
+            };
+
+            if (LEADERBOARD_API_KEY) {
+                headers["X-Master-Key"] = LEADERBOARD_API_KEY;
+            }
+
+            return headers;
+        }
+
+        function readLocalLeaderboard() {
+            try {
+                const saved = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
+                if (!saved) return FALLBACK_LEADERBOARD;
+
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter(Boolean).map((entry) => ({
+                        name: String(entry.name || "PILOT").slice(0, 12).toUpperCase(),
+                        score: Number(entry.score) || 0,
+                        timestamp: Number(entry.timestamp) || Date.now()
+                    }));
+                }
+            } catch (error) {
+                console.warn("Leaderboard local cache unavailable:", error);
+            }
+
+            return FALLBACK_LEADERBOARD;
+        }
+
+        function normalizeLeaderboardPayload(payload) {
+            if (Array.isArray(payload)) return payload;
+            if (payload && Array.isArray(payload.record)) return payload.record;
+            if (payload && Array.isArray(payload.data)) return payload.data;
+            if (payload && Array.isArray(payload.value)) return payload.value;
+            return [];
+        }
+
+        function sortAndLimitLeaderboard(records) {
+            return records
+                .filter((entry) => entry && typeof entry === "object" && Number.isFinite(Number(entry.score)))
+                .map((entry) => ({
+                    name: String(entry.name || "PILOT").slice(0, 12).toUpperCase(),
+                    score: Number(entry.score),
+                    timestamp: Number(entry.timestamp) || Date.now()
+                }))
+                .sort((a, b) => b.score - a.score || a.timestamp - b.timestamp)
+                .slice(0, 5);
+        }
+
+        function renderLeaderboardUI(scores) {
+            const leaderboardContainer = document.getElementById("leaderboardListing");
+            if (!leaderboardContainer) return;
+
+            leaderboardContainer.innerHTML = "";
+            const safeScores = Array.isArray(scores) && scores.length > 0 ? scores : readLocalLeaderboard();
+
+            safeScores.forEach((entry, index) => {
+                const row = document.createElement("div");
+                row.className = `leaderboard-item${index === 0 ? " rank-1" : ""}`;
+                row.innerHTML = `<span>${index + 1}. ${entry.name}</span><span>${entry.score}</span>`;
+                leaderboardContainer.appendChild(row);
+            });
+
+            if (!safeScores.length) {
+                const row = document.createElement("div");
+                row.className = "leaderboard-item";
+                row.innerHTML = `<span>Awaiting scores</span><span>—</span>`;
+                leaderboardContainer.appendChild(row);
+            }
+        }
+
+        async function fetchGlobalLeaderboard() {
+            try {
+                const response = await fetch(LEADERBOARD_API_URL, {
+                    method: "GET",
+                    headers: buildLeaderboardHeaders()
+                });
+
+                if (!response.ok) throw new Error(`Leaderboard fetch failed: ${response.status}`);
+
+                const payload = await response.json();
+                const records = normalizeLeaderboardPayload(payload);
+                const rankedScores = sortAndLimitLeaderboard(records);
+
+                localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(rankedScores));
+                renderLeaderboardUI(rankedScores);
+            } catch (error) {
+                console.warn("Cloud leaderboard unavailable, using fallback:", error);
+                const fallbackScores = readLocalLeaderboard();
+                renderLeaderboardUI(fallbackScores);
+            }
+        }
+
+        async function submitScoreToGlobal(playerName, finalScore) {
+            if (finalScore <= 0) return;
+
+            const safeName = String(playerName || "PILOT").trim().toUpperCase();
+            const newEntry = {
+                name: safeName.slice(0, 12),
+                score: Math.max(0, Math.floor(finalScore)),
+                timestamp: Date.now()
+            };
+
+            try {
+                const response = await fetch(LEADERBOARD_API_URL, {
+                    method: "GET",
+                    headers: buildLeaderboardHeaders()
+                });
+
+                if (!response.ok) throw new Error(`Read failed: ${response.status}`);
+
+                const payload = await response.json();
+                const existing = normalizeLeaderboardPayload(payload);
+                const merged = sortAndLimitLeaderboard([...existing, newEntry]);
+
+                const writeResponse = await fetch(LEADERBOARD_API_URL, {
+                    method: LEADERBOARD_WRITE_METHOD,
+                    headers: buildLeaderboardHeaders(),
+                    body: JSON.stringify(merged)
+                });
+
+                if (!writeResponse.ok) throw new Error(`Write failed: ${writeResponse.status}`);
+
+                localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(merged));
+                await fetchGlobalLeaderboard();
+            } catch (error) {
+                console.warn("Could not sync score to cloud leaderboard:", error);
+                const fallbackScores = sortAndLimitLeaderboard([...readLocalLeaderboard(), newEntry]);
+                localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(fallbackScores));
+                renderLeaderboardUI(fallbackScores);
+            }
+        }
+
+        // GLOBAL CONFIG & CORE STATES
+        let playerIdentity = "YOU";
+        let isRegistered = false;
+
+        let audioCtx = null;
+        let bgMusicInterval = null;
+        let isMuted = false;
+        let musicStep = 0;
+
+        const GRAVITY = 0.14;       
+        const FLAP = -4.2;          
+        const MAX_FALL = 6.5;         
+        const SPAWN_RATE = 115;     
+        const PIPE_SPEED = 2.0;     
+        const PIPE_GAP = 175;       
+        const PIPE_WIDTH = 75;
+
+        let bird;
+        let pipes = [];
+        let frameCount = 0;
+        let score = 0;
+        let highScore = 0;
+        let isGameOver = false;
+        let gameStarted = false;
+        let bgOffset = 0;
+
+        // USER IDENTITY ENGINE
+        function registerUser() {
+            const fieldVal = document.getElementById("playerNameInput").value.trim();
+            if(fieldVal.length > 0) {
+                playerIdentity = fieldVal.toUpperCase();
+            } else {
+                playerIdentity = "PILOT";
+            }
+            localProfileName.innerText = `• ${playerIdentity} (BEST)`;
+            document.getElementById("sysStatusNode").innerText = `Pilot: ${playerIdentity}`;
+            
+            isRegistered = true;
+            gateScreen.style.display = "none";
+            
+            // Warm up Audio Context cleanly inside a user interaction callback block
+            initAudio();
+        }
+
+        // AUDIO GENERATION PARSER
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                startBackgroundMusic();
+            }
+        }
+
+        function playTone(freq, type, duration, startTime, volume = 0.1) {
+            if (isMuted || !audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, startTime);
+                
+                gainNode.gain.setValueAtTime(volume, startTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            } catch(e) {}
+        }
+
+        function startBackgroundMusic() {
+            if (bgMusicInterval) clearInterval(bgMusicInterval);
+            
+            const notes = [110, 130, 146, 165, 110, 130, 196, 165]; 
+            bgMusicInterval = setInterval(() => {
+                if (!isGameOver && gameStarted && !isMuted && audioCtx) {
+                    let now = audioCtx.currentTime;
+                    playTone(notes[musicStep % notes.length], 'triangle', 0.25, now, 0.15);
+                    if (musicStep % 4 === 0) {
+                        playTone(notes[(musicStep + 2) % notes.length] * 2, 'square', 0.15, now, 0.04);
+                    }
+                    musicStep++;
+                }
+            }, 300);
+        }
+
+        function playDeathSound() {
+            if (isMuted || !audioCtx) return;
+            let now = audioCtx.currentTime;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gainNode = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.6);
+                
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.6);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            } catch(e) {}
+        }
+
+        function toggleMute(e) {
+            e.stopPropagation();
+            isMuted = !isMuted;
+            document.getElementById("audioToggle").innerText = isMuted ? "🔇 Muted" : "🔊 Audio On";
+        }
+
+        // ENTITY MODEL DESIGN SCHEMAS
+        class Bird {
+            constructor() {
+                this.x = 90;
+                this.y = 240;
+                this.radius = 15;
+                this.velocity = 0;
+                this.angle = 0;
+                this.wingWave = 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                this.angle = Math.min(Math.max(this.velocity * 0.08, -0.4), 0.7);
+                ctx.rotate(this.angle);
+
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#ffbe76";
+
+                let gradient = ctx.createRadialGradient(-2, -2, 2, 0, 0, this.radius);
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(0.6, '#ffbe76');
+                gradient.addColorStop(1, '#f0932b');
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.strokeStyle = "#130f40";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Eye
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(5, -5, 3.5, 0, Math.PI * 2);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(6, -5, 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = "#000";
+                ctx.fill();
+
+                // Orange Beak
+                ctx.beginPath();
+                ctx.fillStyle = "#ff7675";
+                ctx.moveTo(11, -3);
+                ctx.lineTo(21, 1);
+                ctx.lineTo(10, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                // Wing Flap animation
+                this.wingWave += 0.25;
+                let wingY = Math.sin(this.wingWave) * 3;
+                ctx.beginPath();
+                ctx.fillStyle = "#f0932b";
+                ctx.ellipse(-6, wingY, 7, 4, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            update() {
+                if (gameStarted) {
+                    this.velocity += GRAVITY;
+                    if (this.velocity > MAX_FALL) this.velocity = MAX_FALL;
+                    this.y += this.velocity;
+                }
+                if (this.y + this.radius >= canvas.height - 50) {
+                    this.y = canvas.height - 50 - this.radius;
+                    endGame();
+                }
+                if (this.y - this.radius <= 0) {
+                    this.y = this.radius;
+                    this.velocity = 0;
+                }
+            }
+
+            flap() {
+                if(!isRegistered) return;
+                initAudio(); 
+                if (!gameStarted) gameStarted = true;
+                if (!isGameOver) {
+                    this.velocity = FLAP;
+                    playTone(440, 'sine', 0.08, audioCtx.currentTime, 0.08); 
+                }
+            }
+        }
+
+        class Pipe {
+            constructor() {
+                const minH = 60;
+                const maxH = canvas.height - PIPE_GAP - 110;
+                this.topHeight = Math.floor(Math.random() * (maxH - minH)) + minH;
+                this.bottomHeight = canvas.height - this.topHeight - PIPE_GAP - 50;
+                this.x = canvas.width;
+                this.width = PIPE_WIDTH;
+                this.passed = false;
+            }
+
+            draw() {
+                let pipeGrad = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);
+                pipeGrad.addColorStop(0, '#487eb0');
+                pipeGrad.addColorStop(0.3, '#00a8ff');
+                pipeGrad.addColorStop(0.7, '#0097e6');
+                pipeGrad.addColorStop(1, '#273c75');
+
+                ctx.fillStyle = pipeGrad;
+                ctx.strokeStyle = "#1e272e";
+                ctx.lineWidth = 2;
+
+                // Top Pipe
+                ctx.fillRect(this.x, 0, this.width, this.topHeight);
+                ctx.strokeRect(this.x, -5, this.width, this.topHeight + 5);
+                ctx.fillRect(this.x - 3, this.topHeight - 22, this.width + 6, 22);
+                ctx.strokeRect(this.x - 3, this.topHeight - 22, this.width + 6, 22);
+
+                // Bottom Pipe
+                let bottomY = canvas.height - this.bottomHeight - 50;
+                ctx.fillRect(this.x, bottomY, this.width, this.bottomHeight);
+                ctx.strokeRect(this.x, bottomY, this.width, this.bottomHeight + 5);
+                ctx.fillRect(this.x - 3, bottomY, this.width + 6, 22);
+                ctx.strokeRect(this.x - 3, bottomY, this.width + 6, 22);
+            }
+
+            update() {
+                this.x -= PIPE_SPEED;
+            }
+
+            collidesWith(bird) {
+                let pad = 2; 
+                if (bird.x + bird.radius - pad > this.x && bird.x - bird.radius + pad < this.x + this.width) {
+                    if (bird.y - bird.radius + pad < this.topHeight) return true;
+                    if (bird.y + bird.radius - pad > canvas.height - this.bottomHeight - 50) return true;
+                }
+                return false;
+            }
+        }
+
+        // SIMULATED ENVIRONMENT RENDERS
+        function drawBackground() {
+            ctx.fillStyle = "rgba(30, 27, 75, 0.3)";
+            const buildings = [70, 110, 50, 140, 80, 120, 60, 100];
+            let bWidth = 65;
+            for(let i=0; i<8; i++){
+                let xPos = (i * bWidth) - (bgOffset * 0.2) % bWidth;
+                ctx.fillRect(xPos, canvas.height - buildings[i] - 50, bWidth - 5, buildings[i]);
+            }
+            if (gameStarted && !isGameOver) bgOffset += 1;
+        }
+
+        function drawGround() {
+            let groundGrad = ctx.createLinearGradient(0, canvas.height - 50, 0, canvas.height);
+            groundGrad.addColorStop(0, '#9c88ff');
+            groundGrad.addColorStop(0.1, '#3f51b5');
+            groundGrad.addColorStop(1, '#1a1836');
+
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+
+            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 50);
+            ctx.lineTo(canvas.width, canvas.height - 50);
+            ctx.stroke();
+        }
+
+        // STATE MANAGER ACTIONS
+        function init() {
+            bird = new Bird();
+            pipes = [];
+            frameCount = 0;
+            score = 0;
+            isGameOver = false;
+            gameStarted = false;
+            scoreBoard.innerText = score;
+            gameOverScreen.style.display = "none";
+        }
+
+        function endGame() {
+            if(!isGameOver) {
+                isGameOver = true;
+                playDeathSound();
+                if(score > highScore) {
+                    highScore = score;
+                    bestScoreText.innerText = highScore;
+                }
+                runSummaryText.innerHTML = `Pilot: <b>${playerIdentity}</b><br>Score Achieved: <b>${score}</b>`;
+                gameOverScreen.style.display = "flex";
+                void submitScoreToGlobal(playerIdentity, score);
+            }
+        }
+
+        function resetGame() {
+            init();
+        }
+
+        // LOOP PIPELINE ENGINE
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+
+            if (!gameStarted && isRegistered) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.font = "bold 16px 'Segoe UI'";
+                ctx.textAlign = "center";
+                ctx.fillText("TAP OR PRESS SPACE TO FLAP", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = "13px 'Segoe UI'";
+                ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+                ctx.fillText("Synth tracks auto-generate upon starting!", canvas.width / 2, canvas.height / 2 + 15);
+            }
+
+            if (gameStarted && !isGameOver) {
+                frameCount++;
+                if (frameCount % SPAWN_RATE === 0) {
+                    pipes.push(new Pipe());
+                }
+            }
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                pipes[i].update();
+                pipes[i].draw();
+
+                if (pipes[i].collidesWith(bird)) {
+                    endGame();
+                }
+
+                if (!pipes[i].passed && pipes[i].x + pipes[i].width < bird.x) {
+                    score++;
+                    scoreBoard.innerText = score;
+                    pipes[i].passed = true;
+                    playTone(660, 'sine', 0.1, audioCtx.currentTime, 0.05);
+                }
+
+                if (pipes[i].x + pipes[i].width < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            bird.update();
+            bird.draw();
+            drawGround();
+
+            requestAnimationFrame(animate);
+        }
+
+        // EVENT ROUTING REGISTRIES
+        window.addEventListener("keydown", (e) => {
+            if (e.code === "Space") {
+                e.preventDefault(); 
+                if(!isRegistered) return;
+                if (isGameOver) resetGame();
+                else bird.flap();
+            }
+        });
+
+        canvas.addEventListener("mousedown", () => { bird.flap(); });
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            bird.flap();
+        }, { passive: false });
+
+        init();
+        fetchGlobalLeaderboard();
+        animate();
+    </script>
+</body>
+</html>

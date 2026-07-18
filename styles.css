@@ -1,0 +1,87 @@
+/* Brand header styling for the launcher hero */
+:root {
+    --brand-glow: rgba(0, 200, 255, 0.3);
+}
+
+@keyframes brandFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-5px) rotate(2deg); }
+}
+
+@keyframes brandGlow {
+    0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 200, 255, 0.25)); }
+    50% { filter: drop-shadow(0 0 24px rgba(138, 92, 255, 0.3)); }
+}
+
+@keyframes heroFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.brand-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 22px;
+    opacity: 0;
+    animation: heroFadeIn 650ms ease-out forwards;
+}
+
+.brand-logo {
+    width: 120px;
+    height: auto;
+    display: block;
+    margin-bottom: 12px;
+    border-radius: 24px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 16px rgba(0, 200, 255, 0.22));
+    animation: brandFloat 4.5s ease-in-out infinite, brandGlow 4.5s ease-in-out infinite;
+    transform-origin: center;
+    will-change: transform, filter;
+}
+
+.brand-title {
+    margin: 0;
+    font-size: 42px;
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #8feeff 35%, #9b8cff 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 18px rgba(0, 200, 255, 0.16);
+}
+
+.brand-subtitle {
+    margin: 8px 0 0;
+    color: #94a3b8;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+}
+
+@media (max-width: 700px) {
+    .brand-title {
+        font-size: 32px;
+    }
+
+    .brand-logo {
+        width: 96px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brand-logo,
+    .brand-hero {
+        animation: none;
+        transition: none;
+    }
+}
