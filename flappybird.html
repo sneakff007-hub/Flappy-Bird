@@ -6,7 +6,6 @@
     <title> Sneak Flappy Bird </title>
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon.png">
     <link rel="shortcut icon" href="./favicon.ico">
-    <link rel="stylesheet" href="./particleBackground.css">
     <link rel="stylesheet" href="./styles.css">
     <style>
         :root {
@@ -20,7 +19,7 @@
         body {
             margin: 0;
             padding: 0;
-            background: radial-gradient(circle at center, #1e272e 0%, #0f172a 100%);
+            background: #15232b;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -30,6 +29,23 @@
             overflow-y: auto;
             color: #f8fafc;
             box-sizing: border-box;
+        }
+
+        #environmentBackdrop {
+            position: fixed;
+            inset: -32px;
+            z-index: 0;
+            pointer-events: none;
+            background-color: #15232b;
+            background-image: radial-gradient(circle at center, transparent 10%, rgba(5, 12, 18, 0.5) 100%);
+            filter: blur(30px);
+            transition: background-color 3500ms ease;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #environmentBackdrop {
+                transition: none;
+            }
         }
 
         /* Ambient glowing background shapes */
@@ -305,6 +321,7 @@
 </head>
 <body>
 
+    <div id="environmentBackdrop" aria-hidden="true"></div>
     <div class="bg-glow left"></div>
     <div class="bg-glow right"></div>
 
@@ -330,7 +347,6 @@
         <div id="gameContainer">
             <div id="gateScreen" class="overlay-screen">
                 <header class="brand-hero" aria-label="Site brand">
-                    <img class="brand-logo" src="./assets/logo.png" alt="Sneak Flappy Bird logo" width="120" height="120" loading="eager">
                     <h1 class="brand-title">ENTER ARCADE</h1>
                     <p class="brand-subtitle">Claim your tag on the machine leaderboard</p>
                 </header>
@@ -367,7 +383,6 @@
         </div>
     </div>
 
-    <script src="particleBackground.js"></script>
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
@@ -551,6 +566,122 @@
         let isGameOver = false;
         let gameStarted = false;
         let bgOffset = 0;
+        let environment = null;
+        let previousEnvironment = null;
+        let dayNightMilestone = -1;
+        let weatherMilestone = -1;
+        let environmentTransitionProgress = 1;
+
+        const DAY_NIGHT_SCORE_INTERVAL = 10;
+        const WEATHER_SCORE_INTERVAL = 50;
+        const ENVIRONMENT_TRANSITION_FRAMES = 210;
+        const WEATHER_OPTIONS = ["clear", "rain", "snow", "fog"];
+        const CITY_OPTIONS = ["high-rise", "old-town", "industrial", "coastal"];
+
+        function createEnvironment(timeOfDay, weather, city) {
+            const skyline = document.createElement("canvas");
+            skyline.width = canvas.width;
+            skyline.height = canvas.height - 50;
+
+            const skylineCtx = skyline.getContext("2d");
+            const buildings = [];
+            let buildingX = -8;
+
+            while (buildingX < skyline.width) {
+                const width = 28 + Math.random() * 42;
+                const cityHeight = city === "high-rise" ? 150 : city === "old-town" ? 85 : 120;
+                const height = 55 + Math.random() * cityHeight;
+                buildings.push({ x: buildingX, width, height });
+                buildingX += width + 3;
+            }
+
+            buildings.forEach((building, index) => {
+                const top = skyline.height - building.height;
+                skylineCtx.fillStyle = timeOfDay === "night"
+                    ? (index % 2 ? "#172b36" : "#203844")
+                    : (index % 2 ? "#68867d" : "#7d9586");
+                skylineCtx.fillRect(building.x, top, building.width, building.height);
+
+                if (city === "old-town") {
+                    skylineCtx.beginPath();
+                    skylineCtx.moveTo(building.x - 2, top);
+                    skylineCtx.lineTo(building.x + building.width / 2, top - 12);
+                    skylineCtx.lineTo(building.x + building.width + 2, top);
+                    skylineCtx.fill();
+                } else if (city === "high-rise" && index % 3 === 0) {
+                    skylineCtx.fillRect(building.x + building.width / 2 - 1, top - 15, 2, 15);
+                } else if (city === "industrial" && index % 4 === 0) {
+                    skylineCtx.fillRect(building.x + building.width * 0.7, top - 17, 7, 17);
+                }
+
+                for (let windowY = top + 8; windowY < skyline.height - 8; windowY += 14) {
+                    for (let windowX = building.x + 6; windowX < building.x + building.width - 4; windowX += 12) {
+                        const lit = timeOfDay === "night" && Math.random() > 0.45;
+                        skylineCtx.fillStyle = lit ? "#f5d889" : timeOfDay === "night" ? "#314752" : "#a8c7c1";
+                        skylineCtx.fillRect(windowX, windowY, 4, 6);
+                    }
+                }
+            });
+
+            return {
+                city,
+                timeOfDay,
+                weather,
+                skyline,
+                skyTop: timeOfDay === "night" ? "#101d2b" : "#68b6cf",
+                skyBottom: timeOfDay === "night" ? "#30434c" : "#e6c9a0",
+                backdropColor: weather === "fog"
+                    ? "#a8b5ad"
+                    : weather === "rain"
+                        ? "#78949b"
+                        : weather === "snow"
+                            ? "#a7bdc2"
+                            : "#8bb8c0",
+                weatherParticles: Array.from({ length: weather === "rain" ? 38 : 24 }, () => ({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * (canvas.height - 50),
+                    size: 1 + Math.random() * 2
+                }))
+            };
+        }
+
+        function updateEnvironment() {
+            const nextDayNightMilestone = Math.floor(score / DAY_NIGHT_SCORE_INTERVAL);
+            const nextWeatherMilestone = Math.floor(score / WEATHER_SCORE_INTERVAL);
+            const isFirstEnvironment = environment === null;
+            const timeChanged = nextDayNightMilestone !== dayNightMilestone;
+            const weatherChanged = nextWeatherMilestone !== weatherMilestone;
+
+            if (!isFirstEnvironment && !timeChanged && !weatherChanged) return;
+
+            const pickDifferent = (options, current) => {
+                const available = options.filter((option) => option !== current);
+                return available[Math.floor(Math.random() * available.length)];
+            };
+            const timeOfDay = isFirstEnvironment
+                ? (Math.random() < 0.5 ? "day" : "night")
+                : timeChanged
+                    ? (environment.timeOfDay === "day" ? "night" : "day")
+                    : environment.timeOfDay;
+            const weather = isFirstEnvironment
+                ? WEATHER_OPTIONS[Math.floor(Math.random() * WEATHER_OPTIONS.length)]
+                : weatherChanged
+                    ? pickDifferent(WEATHER_OPTIONS, environment.weather)
+                    : environment.weather;
+            const city = isFirstEnvironment
+                ? CITY_OPTIONS[Math.floor(Math.random() * CITY_OPTIONS.length)]
+                : weatherChanged
+                    ? pickDifferent(CITY_OPTIONS, environment.city)
+                    : environment.city;
+
+            previousEnvironment = environment;
+            environment = createEnvironment(timeOfDay, weather, city);
+            environmentTransitionProgress = previousEnvironment ? 0 : 1;
+            dayNightMilestone = nextDayNightMilestone;
+            weatherMilestone = nextWeatherMilestone;
+            bgOffset = 0;
+            document.getElementById("environmentBackdrop").style.backgroundColor = environment.backdropColor;
+        }
 
         // USER IDENTITY ENGINE
         function registerUser() {
@@ -704,11 +835,11 @@
                 ctx.restore();
             }
 
-            update() {
+            update(deltaFrames) {
                 if (gameStarted) {
-                    this.velocity += GRAVITY;
+                    this.velocity += GRAVITY * deltaFrames;
                     if (this.velocity > MAX_FALL) this.velocity = MAX_FALL;
-                    this.y += this.velocity;
+                    this.y += this.velocity * deltaFrames;
                 }
                 if (this.y + this.radius >= canvas.height - 50) {
                     this.y = canvas.height - 50 - this.radius;
@@ -767,8 +898,8 @@
                 ctx.strokeRect(this.x - 3, bottomY, this.width + 6, 22);
             }
 
-            update() {
-                this.x -= PIPE_SPEED;
+            update(deltaFrames) {
+                this.x -= PIPE_SPEED * deltaFrames;
             }
 
             collidesWith(bird) {
@@ -782,22 +913,92 @@
         }
 
         // SIMULATED ENVIRONMENT RENDERS
-        function drawBackground() {
-            ctx.fillStyle = "rgba(30, 27, 75, 0.3)";
-            const buildings = [70, 110, 50, 140, 80, 120, 60, 100];
-            let bWidth = 65;
-            for(let i=0; i<8; i++){
-                let xPos = (i * bWidth) - (bgOffset * 0.2) % bWidth;
-                ctx.fillRect(xPos, canvas.height - buildings[i] - 50, bWidth - 5, buildings[i]);
+        function drawEnvironment(scene, alpha, deltaFrames) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            const sky = ctx.createLinearGradient(0, 0, 0, canvas.height - 50);
+            sky.addColorStop(0, scene.skyTop);
+            sky.addColorStop(1, scene.skyBottom);
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, canvas.width, canvas.height - 50);
+
+            if (scene.timeOfDay === "night") {
+                ctx.fillStyle = "rgba(255, 255, 230, 0.8)";
+                for (let i = 0; i < 28; i += 1) {
+                    const x = (i * 83 + 29) % canvas.width;
+                    const y = (i * 47 + 19) % 230;
+                    ctx.fillRect(x, y, 2, 2);
+                }
+                ctx.beginPath();
+                ctx.arc(340, 90, 24, 0, Math.PI * 2);
+                ctx.fillStyle = "#f2e8c9";
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.arc(340, 90, 28, 0, Math.PI * 2);
+                ctx.fillStyle = "#ffe4a3";
+                ctx.fill();
             }
-            if (gameStarted && !isGameOver) bgOffset += 1;
+
+            const skylineOffset = (bgOffset * 0.2) % canvas.width;
+            ctx.drawImage(scene.skyline, -skylineOffset, 0);
+            ctx.drawImage(scene.skyline, canvas.width - skylineOffset, 0);
+
+            if (scene.weather === "rain" || scene.weather === "snow") {
+                scene.weatherParticles.forEach((particle) => {
+                    particle.y += (scene.weather === "rain" ? 7 : 1.2) * deltaFrames;
+                    particle.x += (scene.weather === "rain" ? -1.5 : 0.25) * deltaFrames;
+                    if (particle.y > canvas.height - 50) {
+                        particle.y = 0;
+                        particle.x = Math.random() * canvas.width;
+                    }
+
+                    ctx.beginPath();
+                    if (scene.weather === "rain") {
+                        ctx.moveTo(particle.x, particle.y);
+                        ctx.lineTo(particle.x - 3, particle.y + 9);
+                        ctx.strokeStyle = "rgba(205, 226, 235, 0.55)";
+                        ctx.stroke();
+                    } else {
+                        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                        ctx.fill();
+                    }
+                });
+            } else if (scene.weather === "fog") {
+                ctx.fillStyle = "rgba(218, 229, 220, 0.16)";
+                ctx.fillRect(0, 300, canvas.width, 100);
+            }
+
+            ctx.restore();
         }
 
-        function drawGround() {
+        function drawBackground(deltaFrames) {
+            updateEnvironment();
+
+            if (previousEnvironment) {
+                environmentTransitionProgress = Math.min(
+                    1,
+                    environmentTransitionProgress + deltaFrames / ENVIRONMENT_TRANSITION_FRAMES
+                );
+                drawEnvironment(previousEnvironment, 1 - environmentTransitionProgress, deltaFrames);
+                drawEnvironment(environment, environmentTransitionProgress, deltaFrames);
+                if (environmentTransitionProgress === 1) previousEnvironment = null;
+            } else {
+                drawEnvironment(environment, 1, deltaFrames);
+            }
+
+            if (gameStarted && !isGameOver) bgOffset += deltaFrames;
+        }
+
+        function drawGroundForEnvironment(scene, alpha) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
             let groundGrad = ctx.createLinearGradient(0, canvas.height - 50, 0, canvas.height);
-            groundGrad.addColorStop(0, '#9c88ff');
-            groundGrad.addColorStop(0.1, '#3f51b5');
-            groundGrad.addColorStop(1, '#1a1836');
+            const isNight = scene.timeOfDay === "night";
+            groundGrad.addColorStop(0, isNight ? "#34474a" : "#82947d");
+            groundGrad.addColorStop(0.1, isNight ? "#27383d" : "#667b6c");
+            groundGrad.addColorStop(1, isNight ? "#152329" : "#354b43");
 
             ctx.fillStyle = groundGrad;
             ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
@@ -808,6 +1009,16 @@
             ctx.moveTo(0, canvas.height - 50);
             ctx.lineTo(canvas.width, canvas.height - 50);
             ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawGround() {
+            if (previousEnvironment) {
+                drawGroundForEnvironment(previousEnvironment, 1 - environmentTransitionProgress);
+                drawGroundForEnvironment(environment, environmentTransitionProgress);
+            } else {
+                drawGroundForEnvironment(environment, 1);
+            }
         }
 
         // STATE MANAGER ACTIONS
@@ -816,6 +1027,9 @@
             pipes = [];
             frameCount = 0;
             score = 0;
+            bgOffset = 0;
+            dayNightMilestone = -1;
+            weatherMilestone = -1;
             isGameOver = false;
             gameStarted = false;
             scoreBoard.innerText = score;
@@ -841,9 +1055,16 @@
         }
 
         // LOOP PIPELINE ENGINE
-        function animate() {
+        let previousFrameTime = 0;
+
+        function animate(timestamp) {
+            const deltaFrames = previousFrameTime
+                ? Math.min((timestamp - previousFrameTime) / (1000 / 60), 2)
+                : 1;
+            previousFrameTime = timestamp;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawBackground();
+            drawBackground(deltaFrames);
 
             if (!gameStarted && isRegistered) {
                 ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
@@ -856,21 +1077,22 @@
             }
 
             if (gameStarted && !isGameOver) {
-                frameCount++;
-                if (frameCount % SPAWN_RATE === 0) {
+                frameCount += deltaFrames;
+                if (frameCount >= SPAWN_RATE) {
+                    frameCount -= SPAWN_RATE;
                     pipes.push(new Pipe());
                 }
             }
 
             for (let i = pipes.length - 1; i >= 0; i--) {
-                pipes[i].update();
+                if (gameStarted && !isGameOver) pipes[i].update(deltaFrames);
                 pipes[i].draw();
 
-                if (pipes[i].collidesWith(bird)) {
+                if (gameStarted && !isGameOver && pipes[i].collidesWith(bird)) {
                     endGame();
                 }
 
-                if (!pipes[i].passed && pipes[i].x + pipes[i].width < bird.x) {
+                if (gameStarted && !isGameOver && !pipes[i].passed && pipes[i].x + pipes[i].width < bird.x) {
                     score++;
                     scoreBoard.innerText = score;
                     pipes[i].passed = true;
@@ -882,7 +1104,7 @@
                 }
             }
 
-            bird.update();
+            bird.update(deltaFrames);
             bird.draw();
             drawGround();
 
